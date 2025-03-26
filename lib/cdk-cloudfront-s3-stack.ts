@@ -12,7 +12,8 @@ interface CdkStackProps extends StackProps {
   ResourceName: string;
   AlternateDomainNames: string[];
   CertificateArn: string;
-  OriginDomain: string;
+  ContentBucketName: string;  // コンテンツ用S3バケット名
+  ContentKeyPrefix?: string;  // オプショナルなプレフィックス
   SettingBehaviors: Record<string, any>[];
   WhiteListIpSetArn: string;
   ManagedRules: string[];
@@ -22,20 +23,21 @@ interface CdkStackProps extends StackProps {
   Description: string;
 }
 
-export class CdkCloudFrontEc2Stack extends Stack {
+export class CdkCloudFrontS3Stack extends Stack {
   constructor(scope: Construct, id: string, props: CdkStackProps) {
     super(scope, id, props);
 
     // ✅ props が undefined の場合、エラーを回避
     if (!props) {
-      throw new Error('props is required for CdkEc2Stack');
+      throw new Error('props is required for CdkCloudFrontS3Stack');
     }
     
     const {
       ResourceName,
       AlternateDomainNames,
       CertificateArn,
-      OriginDomain,
+      ContentBucketName,
+      ContentKeyPrefix,
       SettingBehaviors,
       WhiteListIpSetArn,
       ManagedRules,
@@ -122,11 +124,16 @@ export class CdkCloudFrontEc2Stack extends Stack {
       enableAcceptEncodingBrotli: true, // Brotli圧縮を有効化
       enableAcceptEncodingGzip: true,   // Gzip圧縮を有効化
     });
+    
+    const contentBucket = new s3.Bucket(this, 'ContentBucket', {
+      bucketName: ContentBucketName,
+      autoDeleteObjects: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // 直接のパブリックアクセスをブロック
+      removalPolicy: RemovalPolicy.RETAIN, // 安全のため、スタック削除時にバケットを保持
+    });
 
-    const origin = new origins.HttpOrigin(OriginDomain, { // item.originDomain を使用
-      protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY, // HTTP経由でオリジンと通信
-      originShieldEnabled: true,
-      originShieldRegion: 'ap-northeast-1',
+    const origin = new origins.S3Origin(contentBucket, {
+      originPath: ContentKeyPrefix ? `/${ContentKeyPrefix}` : undefined,
     });
 
     // ✅ ビヘイビアの設定
@@ -194,9 +201,9 @@ export class CdkCloudFrontEc2Stack extends Stack {
       value: webAcl.attrId,
     });
     
-    new CfnOutput(this, 'OriginDomain', {
-      description: 'オリジンドメイン',
-      value: OriginDomain,
+    new CfnOutput(this, 'ContentBucketName', {
+      description: 'コンテンツS3バケット名',
+      value: contentBucket.bucketName,
     });
   }
 }

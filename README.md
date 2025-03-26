@@ -1,28 +1,33 @@
-# AWS CDK CloudFront + EC2 + WAF プロジェクト
+# AWS CDK CloudFront + S3 + WAF プロジェクト
 
 このプロジェクトでは、AWS CDKを使用して以下のインフラストラクチャを構築します：
-1. 既存のEC2インスタンスをオリジンとするCloudFrontディストリビューション
+1. S3バケットをオリジンとするCloudFrontディストリビューション
 2. CloudFrontディストリビューションに接続されたWAFによるセキュリティ強化
 
 ## 構成内容
 
-このスタック（`CdkCloudFrontEc2Stack`）は次のリソースを作成します：
+このスタック（`CdkCloudFrontS3Stack`）は次のリソースを作成します：
 
-1. **WAF Web ACL**:
+1. **S3バケット**:
+   - ウェブコンテンツを保存するためのバケット
+   - CloudFrontからのアクセスのみを許可
+
+2. **WAF Web ACL**:
    - レートベース制限：IPアドレスごとに100リクエスト/5分に制限（DDoS対策）
    - SQLインジェクション対策：AWSマネージドルールセット
    - 一般的なWebアプリケーション脆弱性対策：AWSマネージドルールセット
 
-2. **CloudFrontディストリビューション**:
-   - 既存のEC2インスタンスをオリジンとして使用
+3. **CloudFrontディストリビューション**:
+   - S3バケットをオリジンとして使用
    - ビューワーからのHTTPリクエストをHTTPSにリダイレクト
    - 最適化されたキャッシュポリシー
    - WAF Web ACLによる保護
 
 ## デプロイ前の準備
 
-1. `bin/cdk-cloudfront-ec2.ts` ファイルを編集し、以下の設定を変更：
-   - `EC2InstanceId` の値を実際のEC2インスタンスIDに変更（デフォルト: `i-xxxxxxxxxxxxxxxxx`）
+1. `cdk.json` ファイルを編集し、以下の設定を変更：
+   - `ContentBucketName` の値を実際のS3バケット名に変更
+   - 必要に応じて `ContentKeyPrefix` を設定
 
 ## デプロイ方法
 
@@ -34,12 +39,12 @@ cdk deploy      # AWSアカウントにスタックをデプロイ
 デプロイ後は、出力される以下の情報を使用してCloudFrontディストリビューションにアクセスできます：
 - `DistributionDomainName`: CloudFrontディストリビューションのドメイン名
 - `WebACLId`: WAF Web ACLのID
-- `EC2InstanceId`: 関連付けられたEC2インスタンスID
+- `ContentBucketName`: コンテンツS3バケット名
 
 ## 注意事項
 
-- EC2インスタンスにはパブリックにアクセス可能なDNS名またはIPアドレスが必要です。
-- EC2インスタンスのセキュリティグループで、CloudFrontからのインバウンドHTTPトラフィック（ポート80）を許可していることを確認してください。
+- S3バケットは直接パブリックアクセスできないように設定されています。すべてのアクセスはCloudFront経由する必要があります。
+- コンテンツをS3バケットにアップロードした後、CloudFrontディストリビューションを通じてアクセスできます。
 
 ## その他のコマンド
 

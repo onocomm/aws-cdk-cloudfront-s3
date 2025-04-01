@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { CdkCloudFrontEc2Stack } from '../lib/cdk-cloudfront-ec2-stack';
+import { CdkCloudFrontS3Stack } from '../lib/cdk-cloudfront-s3-stack';
 
 const envName = process.env.CDK_ENV || 'production';
 
@@ -11,7 +11,7 @@ if (!config) {
   throw new Error(`Environment ${envName} is not defined in cdk.json`);
 }
 
-new CdkCloudFrontEc2Stack(app, `CdkCloudFrontEc2Stack-${config.ResourceName}`, {
+new CdkCloudFrontS3Stack(app, `CdkCloudFrontS3Stack-${config.ResourceName}`, {
   ...config,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,

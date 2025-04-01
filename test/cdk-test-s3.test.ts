@@ -1,8 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
-import * as CdkCloudFrontEc2 from '../lib/cdk-cloudfront-ec2-stack';
+import * as CdkCloudFrontS3 from '../lib/cdk-cloudfront-s3-stack';
 
-test('CloudFront with WAF and EC2 Origin Resources', () => {
+test('CloudFront with WAF and S3 Origin Resources', () => {
   const app = new cdk.App();
   // スタック環境を指定
   const env = { 
@@ -11,8 +11,8 @@ test('CloudFront with WAF and EC2 Origin Resources', () => {
   };
   
   // WHEN
-  const stack = new CdkCloudFrontEc2.CdkCloudFrontEc2Stack(app, 'MyTestStack', { 
-    EC2InstanceId: 'i-testinstance12345',
+  const stack = new CdkCloudFrontS3.CdkCloudFrontS3Stack(app, 'MyTestStack', { 
+    ContentBucketName: 'test-content-bucket',
     env 
   } as any);
   
@@ -96,7 +96,7 @@ test('CloudFront with WAF and EC2 Origin Resources', () => {
   // 出力の検証
   template.hasOutput('DistributionDomainName', {});
   template.hasOutput('WebACLId', {});
-  template.hasOutput('EC2InstanceId', {
-    Value: 'i-testinstance12345'
+  template.hasOutput('ContentBucketName', {
+    Value: 'test-content-bucket'
   });
 });

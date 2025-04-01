@@ -1,8 +1,8 @@
 {
-  "name": "cdk-cloudfront-ec2",
+  "name": "cdk-cloudfront-s3",
   "version": "0.1.0",
   "bin": {
-    "cdk-test-ec2": "bin/cdk-cloudfront-ec2.js"
+    "cdk-cloudfront-s3": "bin/cdk-cloudfront-s3.js"
   },
   "scripts": {
     "build": "tsc",

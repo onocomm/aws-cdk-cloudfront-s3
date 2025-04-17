@@ -1,54 +1,103 @@
-# AWS CDK CloudFront + S3 + WAF プロジェクト
+# AWS CDK CloudFront + S3 スタック
 
-このプロジェクトでは、AWS CDKを使用して以下のインフラストラクチャを構築します：
-1. S3バケットをオリジンとするCloudFrontディストリビューション
-2. CloudFrontディストリビューションに接続されたWAFによるセキュリティ強化
+このプロジェクトでは、AWS CDKを使用してCloudFrontとS3バケットを組み合わせた静的コンテンツ配信インフラストラクチャを構築します。
 
-## 構成内容
+## アーキテクチャ概要
 
 このスタック（`CdkCloudFrontS3Stack`）は次のリソースを作成します：
 
-1. **S3バケット**:
-   - ウェブコンテンツを保存するためのバケット
-   - CloudFrontからのアクセスのみを許可
+1. **コンテンツ用S3バケット**:
+   - 静的コンテンツを保存するためのバケット
+   - パブリックアクセスをブロック（CloudFrontからのアクセスのみ許可）
+   - オリジンアクセスコントロール（OAC）によるセキュリティ強化
 
-2. **WAF Web ACL**:
-   - レートベース制限：IPアドレスごとに100リクエスト/5分に制限（DDoS対策）
-   - SQLインジェクション対策：AWSマネージドルールセット
-   - 一般的なWebアプリケーション脆弱性対策：AWSマネージドルールセット
+2. **CloudFrontログ用S3バケット**:
+   - CloudFrontのアクセスログを保存するバケット
+   - 適切なアクセスコントロール設定
 
 3. **CloudFrontディストリビューション**:
    - S3バケットをオリジンとして使用
+   - オリジンシールド機能を有効化
    - ビューワーからのHTTPリクエストをHTTPSにリダイレクト
-   - 最適化されたキャッシュポリシー
-   - WAF Web ACLによる保護
+   - カスタムキャッシュポリシー設定
+   - 画像ファイル（/images/*）用の特別なビヘイビア設定
+   - アクセスログの有効化
 
-## デプロイ前の準備
+## カスタムキャッシュポリシー
 
-1. `cdk.json` ファイルを編集し、以下の設定を変更：
-   - `ContentBucketName` の値を実際のS3バケット名に変更
-   - 必要に応じて `ContentKeyPrefix` を設定
+本実装では以下の設定を持つカスタムキャッシュポリシーを作成します：
 
-## デプロイ方法
+- デフォルトTTL: 5分
+- 最小TTL: 1秒
+- 最大TTL: 365日
+- Cookie: キャッシュキーに含めない
+- ヘッダー: キャッシュキーに含めない
+- クエリ文字列: すべてキャッシュキーに含める
+- Brotliおよびgzip圧縮: 有効
 
-```bash
-npm run build   # TypeScriptをJavaScriptにコンパイル
-cdk deploy      # AWSアカウントにスタックをデプロイ
-```
+## 前提条件
 
-デプロイ後は、出力される以下の情報を使用してCloudFrontディストリビューションにアクセスできます：
-- `DistributionDomainName`: CloudFrontディストリビューションのドメイン名
-- `WebACLId`: WAF Web ACLのID
-- `ContentBucketName`: コンテンツS3バケット名
+- Node.js と npm がインストールされていること
+- AWS CDK CLI がインストールされていること (`npm install -g aws-cdk`)
+- AWS 認証情報が設定されていること
 
-## 注意事項
+## デプロイ手順
 
-- S3バケットは直接パブリックアクセスできないように設定されています。すべてのアクセスはCloudFront経由する必要があります。
-- コンテンツをS3バケットにアップロードした後、CloudFrontディストリビューションを通じてアクセスできます。
+1. 必要に応じて `lib/cdk-cloudfront-s3-stack.ts` ファイルを編集し、以下のパラメータを変更：
+   - `BucketName`: コンテンツ用S3バケット名
+   - `LogBucket`: ログ用S3バケット名
+   - `LogFilePrefix`: ログファイルのプレフィックス
+   - その他必要な設定（カスタムドメイン、リージョン等）
+
+2. 依存パッケージをインストール
+   ```bash
+   npm install
+   ```
+
+3. TypeScriptコードをコンパイル
+   ```bash
+   npm run build
+   ```
+
+4. CDKを使用してスタックをデプロイ
+   ```bash
+   cdk deploy
+   ```
+
+デプロイ完了後、出力された `DistributionId` を確認できます。これはCloudFrontディストリビューションのIDです。
+
+## コンテンツのアップロード
+
+デプロイ後、以下の手順でコンテンツをアップロードできます：
+
+1. AWS Management Consoleまたは AWS CLIを使用してS3バケットにファイルをアップロード
+   ```bash
+   aws s3 cp ./local-directory s3://example-20240417-s3-bucket/ --recursive
+   ```
+
+2. CloudFrontディストリビューションのドメイン名を使用してコンテンツにアクセス
+
+## カスタムドメインの設定（オプション）
+
+カスタムドメインを使用する場合は、以下の手順を実施します：
+
+1. コード内のコメントアウトされた部分を有効化：
+   - `DomainNames` 変数の設定
+   - ACM証明書の設定（`CertificateArn` および `certificate` 関連のコード）
+
+2. CloudFrontディストリビューション設定の `domainNames` と `certificate` パラメータを有効化
+
+3. DNSプロバイダー側で、カスタムドメインからCloudFrontディストリビューションへのエイリアスレコードを作成
 
 ## その他のコマンド
 
-* `npm run watch`   変更を監視して自動コンパイル
-* `npm run test`    Jestを使用したユニットテストの実行
-* `cdk diff`        デプロイ済みスタックと現在の状態を比較
-* `cdk synth`       CloudFormationテンプレートを出力
+* `npm run watch` - 変更を監視して自動コンパイル
+* `npm run test` - テストの実行
+* `cdk diff` - デプロイ済みスタックとの差分を表示
+* `cdk synth` - CloudFormationテンプレートの合成
+
+## 注意事項
+
+- S3バケットは直接パブリックアクセスできないように設定されています。すべてのアクセスはCloudFront経由となります。
+- 本実装ではWAFは含まれていませんが、必要に応じて追加することができます。
+- コードには一部コメントアウトされた機能（カスタムドメイン、ACM証明書）があり、必要に応じて有効化できます。

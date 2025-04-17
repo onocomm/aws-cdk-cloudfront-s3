@@ -17,64 +17,6 @@
     ]
   },
   "context": {
-    "production": {
-      "ResourceName": "ExampleComProduction",
-      "AlternateDomainNames": ["www.example-20250324.com"],
-      "CertificateArn": "",
-      "ContentBucketName": "example-content-bucket-20250324",
-      "ContentKeyPrefix": "",
-      "SettingBehaviors":[
-        {
-          "pathPattern": "/test",
-          "cacheEnabled": true
-        }
-      ],
-      "WhiteListIpSetArn": "",
-      "ManagedRules" : [
-        "AWSManagedRulesAdminProtectionRuleSet",
-        "AWSManagedRulesAmazonIpReputationList",
-        "AWSManagedRulesAnonymousIpList",
-        "AWSManagedRulesCommonRuleSet",
-        "AWSManagedRulesKnownBadInputsRuleSet",
-        "AWSManagedRulesLinuxRuleSet",
-        "AWSManagedRulesPHPRuleSet",
-        "AWSManagedRulesUnixRuleSet",
-        "AWSManagedRulesSQLiRuleSet"
-      ],
-      "LogBucket": "cloudfront-log-20250324",
-      "LogFilePrefix": "example-20250324.com",
-      "LogRemoval": true,
-      "Description": "本番環境 www.example-20250324.com"
-    },
-    "staging": {
-      "ResourceName": "ExampleComStaging",
-      "AlternateDomainNames": ["staging.example-20250324.com"],
-      "CertificateArn": "",
-      "ContentBucketName": "example-staging-content-bucket-20250324",
-      "ContentKeyPrefix": "",
-      "SettingBehaviors":[
-        {
-          "pathPattern": "/test",
-          "cacheEnabled": true
-        }
-      ],
-      "WhiteListIpSetArn": "",
-      "ManagedRules" : [
-        "AWSManagedRulesAdminProtectionRuleSet",
-        "AWSManagedRulesAmazonIpReputationList",
-        "AWSManagedRulesAnonymousIpList",
-        "AWSManagedRulesCommonRuleSet",
-        "AWSManagedRulesKnownBadInputsRuleSet",
-        "AWSManagedRulesLinuxRuleSet",
-        "AWSManagedRulesPHPRuleSet",
-        "AWSManagedRulesUnixRuleSet",
-        "AWSManagedRulesSQLiRuleSet"
-      ],
-      "LogBucket": "cloudfront-log-20250324",
-      "LogFilePrefix": "staging.example-20250324.com",
-      "LogRemoval": true,
-      "Description": "開発環境 staging.example-20250324.com"
-    },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [

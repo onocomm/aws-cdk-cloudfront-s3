@@ -7,110 +7,26 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
-// カスタムプロパティの型を定義
-interface CdkStackProps extends StackProps {
-  ResourceName: string;
-  AlternateDomainNames: string[];
-  CertificateArn: string;
-  ContentBucketName: string;  // コンテンツ用S3バケット名
-  ContentKeyPrefix?: string;  // オプショナルなプレフィックス
-  SettingBehaviors: Record<string, any>[];
-  WhiteListIpSetArn: string;
-  ManagedRules: string[];
-  LogBucket: string;
-  LogFilePrefix: string;
-  LogRemoval: boolean;
-  Description: string;
-}
 
 export class CdkCloudFrontS3Stack extends Stack {
-  constructor(scope: Construct, id: string, props: CdkStackProps) {
+  constructor(scope: Construct, id: string, props: StackProps) {
     super(scope, id, props);
 
-    // ✅ props が undefined の場合、エラーを回避
-    if (!props) {
-      throw new Error('props is required for CdkCloudFrontS3Stack');
-    }
-    
-    const {
-      ResourceName,
-      AlternateDomainNames,
-      CertificateArn,
-      ContentBucketName,
-      ContentKeyPrefix,
-      SettingBehaviors,
-      WhiteListIpSetArn,
-      ManagedRules,
-      LogBucket,
-      LogFilePrefix,
-      LogRemoval,
-      Description,
-    } = props as CdkStackProps;
+      "SettingBehaviors":[
+        {
+          "pathPattern": "/test",
+          "cacheEnabled": true
+        }
+      ]
 
-    // ✅ AWS マネージドルールの設定
-    const rules = ManagedRules.map((ruleName, index) => ({
-      name: ruleName,
-      priority: index + 1,
-      statement: {
-        managedRuleGroupStatement: {
-          name: ruleName,
-          vendorName: 'AWS',
-        },
-      },
-      overrideAction: { none: {} },
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: `${ruleName}-Metrics`,
-        sampledRequestsEnabled: true,
-      },
-    }));
-
-    // ✅ CloudFront 用 WAF WebACL を作成
-    const webAcl = new wafv2.CfnWebACL(this, 'WebACL', {
-      name: `${ResourceName}-WebACL`,
-      defaultAction: { allow: {} },
-      scope: 'CLOUDFRONT',
-      visibilityConfig: {
-        cloudWatchMetricsEnabled: true,
-        metricName: `${ResourceName}-WebACL-Metrics`,
-        sampledRequestsEnabled: true,
-      },
-      rules: [
-        // ✅ ホワイトリスト (IPSet)
-        ...(WhiteListIpSetArn
-          ? [{
-              name: 'WhiteList',
-              priority: 0,
-              action: { allow: {} },
-              statement: {
-                ipSetReferenceStatement: {
-                  arn: WhiteListIpSetArn,
-                },
-              },
-              visibilityConfig: {
-                cloudWatchMetricsEnabled: true,
-                metricName: 'WhiteList-Metrics',
-                sampledRequestsEnabled: true,
-              },
-            }]
-          : []),
-        // ✅ AWS マネージドルール
-        ...rules,
-      ],
-    });
-
-    // ✅ WAF ログ設定（CloudWatch Logs に出力）
-    const wafLogGroup = new logs.LogGroup(this, 'WafLogGroup', {
-      logGroupName:  `aws-waf-logs-${ResourceName}`,
-      retention: logs.RetentionDays.FIVE_YEARS,
-      removalPolicy: LogRemoval ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
-    });
-
-    // ✅ WAF のロギング設定
-    new wafv2.CfnLoggingConfiguration(this, 'WafLoggingConfig', {
-      logDestinationConfigs: [wafLogGroup.logGroupArn], // ✅ CloudWatch Logs を設定
-      resourceArn: webAcl.attrArn,
-    });
+    // ✅ 各種パラメータ
+    const ResourceName =this.stackName ?? 'CdkCloudFrontS3Stack';
+    const AlternateDomainNames = ["www.example.com"];
+    const CertificateArn = "";
+    const ContentBucketName = "example-content-bucket";
+    const LogBucket =  "cloudfront-log-example.com";
+    const LogFilePrefix = "example.com";
+    const Description = "www.example.com用のCloudFrontディストリビューション";
     
     // ✅ CloudFrontのカスタムキャッシュポリシーを作成
     const customCachePolicy = new cloudfront.CachePolicy(this, 'CustomCachePolicy', {
@@ -128,13 +44,17 @@ export class CdkCloudFrontS3Stack extends Stack {
     const contentBucket = new s3.Bucket(this, 'ContentBucket', {
       bucketName: ContentBucketName,
       autoDeleteObjects: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL, // 直接のパブリックアクセスをブロック
-      removalPolicy: RemovalPolicy.RETAIN, // 安全のため、スタック削除時にバケットを保持
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const origin = new origins.S3Origin(contentBucket, {
-      originPath: ContentKeyPrefix ? `/${ContentKeyPrefix}` : undefined,
-    });
+    const origin = origins.S3BucketOrigin.withOriginAccessControl(
+      s3.Bucket.fromBucketAttributes(this, 'DefaultOriginBucket', {bucketName: DefaultOrigin, region: DefaultOriginRegion}),
+      {
+        originShieldEnabled: true,
+        originShieldRegion: DefaultOriginRegion,
+      }
+    );
 
     // ✅ ビヘイビアの設定
     const behaviors = Object.fromEntries(
@@ -156,7 +76,7 @@ export class CdkCloudFrontS3Stack extends Stack {
       bucketName: LogBucket,
       autoDeleteObjects: false,
       accessControl: s3.BucketAccessControl.LOG_DELIVERY_WRITE,
-      removalPolicy: LogRemoval ? RemovalPolicy.DESTROY : RemovalPolicy.RETAIN,
+      removalPolicy: RemovalPolicy.DESTROY, //RemovalPolicy.RETAIN
     });
 
     // ✅ CloudFrontディストリビューションの作成
@@ -180,7 +100,6 @@ export class CdkCloudFrontS3Stack extends Stack {
       // 有効
       enabled: true,
       // 代替ドメイン名（CNAME）を指定
-      ...((AlternateDomainNames?.[0] && CertificateArn) &&
         { domainNames: AlternateDomainNames }),
       // ACM証明書を指定
       ...(CertificateArn &&
